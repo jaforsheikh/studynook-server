@@ -11,6 +11,13 @@ export const auth = betterAuth({
     enabled: true,
   },
 
+  account: {
+    accountLinking: {
+      enabled: true,
+      trustedProviders: ["google"],
+    },
+  },
+
   socialProviders: {
     google: {
       clientId: process.env.GOOGLE_CLIENT_ID,
