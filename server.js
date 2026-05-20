@@ -3,6 +3,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
 import { toNodeHandler } from "better-auth/node";
+import bookingsRoutes from "./routes/bookings.routes.js";
 
 import client from "./services/mongodb.js";
 import { auth } from "./auth.js";
