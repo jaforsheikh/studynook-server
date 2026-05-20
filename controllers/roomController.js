@@ -2,26 +2,20 @@ import { ObjectId } from "mongodb";
 import { roomsCollection } from "../server.js";
 
 /*
-GET ALL ROOMS
+GET ALL ROOMS WITH SEARCH/FILTER
 */
-
 export const getAllRooms = async (req, res) => {
   try {
-    const search = req.query.search || "";
-    const amenities = req.query.amenities?.split(",") || [];
-    const minPrice = Number(req.query.minPrice) || 0;
-    const maxPrice = Number(req.query.maxPrice) || 100000;
+    const {
+      search = "",
+      location = "",
+      minPrice = "0",
+      maxPrice = "999999",
+      capacity = "",
+      amenities = "",
+    } = req.query;
 
-    let query = {
-      price: {
-        $gte: minPrice,
-        $lte: maxPrice,
-      },
-    };
-
-    /*
-    SEARCH FILTER
-    */
+    const query = {};
 
     if (search) {
       query.name = {
@@ -30,13 +24,27 @@ export const getAllRooms = async (req, res) => {
       };
     }
 
-    /*
-    AMENITIES FILTER
-    */
+    if (location) {
+      query.location = {
+        $regex: location,
+        $options: "i",
+      };
+    }
 
-    if (amenities.length > 0) {
+    query.price = {
+      $gte: Number(minPrice),
+      $lte: Number(maxPrice),
+    };
+
+    if (capacity) {
+      query.capacity = {
+        $gte: Number(capacity),
+      };
+    }
+
+    if (amenities) {
       query.amenities = {
-        $in: amenities,
+        $in: amenities.split(","),
       };
     }
 
@@ -63,7 +71,6 @@ export const getAllRooms = async (req, res) => {
 /*
 GET LATEST ROOMS
 */
-
 export const getLatestRooms = async (req, res) => {
   try {
     const rooms = await roomsCollection
@@ -89,14 +96,19 @@ export const getLatestRooms = async (req, res) => {
 /*
 GET SINGLE ROOM
 */
-
 export const getSingleRoom = async (req, res) => {
   try {
     const id = req.params.id;
 
-    const room = await roomsCollection.findOne({
-      _id: new ObjectId(id),
-    });
+    let query;
+
+    if (ObjectId.isValid(id)) {
+      query = { _id: new ObjectId(id) };
+    } else {
+      query = { slug: id };
+    }
+
+    const room = await roomsCollection.findOne(query);
 
     if (!room) {
       return res.status(404).send({
@@ -122,22 +134,39 @@ export const getSingleRoom = async (req, res) => {
 /*
 ADD ROOM
 */
-
 export const addRoom = async (req, res) => {
   try {
     const roomData = req.body;
 
-    roomData.createdAt = new Date();
+    const slug = roomData.name
+      ?.toLowerCase()
+      .trim()
+      .replace(/[^\w\s-]/g, "")
+      .replace(/\s+/g, "-");
 
-    roomData.bookingCount = 0;
+    const newRoom = {
+      name: roomData.name,
+      slug,
+      image: roomData.image,
+      location: roomData.location,
+      floor: roomData.floor,
+      capacity: Number(roomData.capacity),
+      price: Number(roomData.price),
+      description: roomData.description,
+      amenities: roomData.amenities || [],
+      availableToday: true,
+      rating: Number(roomData.rating) || 4.8,
+      bookingCount: 0,
+      owner: roomData.owner,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
 
-    roomData.owner = req.user;
+    const result = await roomsCollection.insertOne(newRoom);
 
-    const result = await roomsCollection.insertOne(roomData);
-
-    res.send({
+    res.status(201).send({
       success: true,
-      message: "Room Added Successfully",
+      message: "Room added successfully",
       insertedId: result.insertedId,
     });
   } catch (error) {
@@ -153,12 +182,17 @@ export const addRoom = async (req, res) => {
 /*
 UPDATE ROOM
 */
-
 export const updateRoom = async (req, res) => {
   try {
     const id = req.params.id;
+    const roomData = req.body;
 
-    const updatedData = req.body;
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).send({
+        success: false,
+        message: "Invalid room id",
+      });
+    }
 
     const existingRoom = await roomsCollection.findOne({
       _id: new ObjectId(id),
@@ -171,32 +205,26 @@ export const updateRoom = async (req, res) => {
       });
     }
 
-    /*
-    OWNER CHECK
-    */
-
-    if (existingRoom?.owner?.email !== req.user.email) {
-      return res.status(403).send({
-        success: false,
-        message: "Unauthorized access",
-      });
-    }
-
-    const updatedDoc = {
-      $set: {
-        ...updatedData,
-        updatedAt: new Date(),
-      },
+    const updatedRoom = {
+      name: roomData.name,
+      image: roomData.image,
+      location: roomData.location,
+      floor: roomData.floor,
+      capacity: Number(roomData.capacity),
+      price: Number(roomData.price),
+      description: roomData.description,
+      amenities: roomData.amenities || [],
+      updatedAt: new Date(),
     };
 
     const result = await roomsCollection.updateOne(
       { _id: new ObjectId(id) },
-      updatedDoc
+      { $set: updatedRoom }
     );
 
     res.send({
       success: true,
-      message: "Room Updated Successfully",
+      message: "Room updated successfully",
       result,
     });
   } catch (error) {
@@ -212,30 +240,14 @@ export const updateRoom = async (req, res) => {
 /*
 DELETE ROOM
 */
-
 export const deleteRoom = async (req, res) => {
   try {
     const id = req.params.id;
 
-    const existingRoom = await roomsCollection.findOne({
-      _id: new ObjectId(id),
-    });
-
-    if (!existingRoom) {
-      return res.status(404).send({
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).send({
         success: false,
-        message: "Room not found",
-      });
-    }
-
-    /*
-    OWNER CHECK
-    */
-
-    if (existingRoom?.owner?.email !== req.user.email) {
-      return res.status(403).send({
-        success: false,
-        message: "Unauthorized access",
+        message: "Invalid room id",
       });
     }
 
@@ -245,7 +257,7 @@ export const deleteRoom = async (req, res) => {
 
     res.send({
       success: true,
-      message: "Room Deleted Successfully",
+      message: "Room deleted successfully",
       result,
     });
   } catch (error) {
@@ -259,12 +271,11 @@ export const deleteRoom = async (req, res) => {
 };
 
 /*
-MY LISTINGS
+GET MY LISTINGS
 */
-
 export const getMyListings = async (req, res) => {
   try {
-    const email = req.user.email;
+    const email = req.params.email;
 
     const rooms = await roomsCollection
       .find({
@@ -282,7 +293,7 @@ export const getMyListings = async (req, res) => {
 
     res.status(500).send({
       success: false,
-      message: "Failed to fetch listings",
+      message: "Failed to fetch my listings",
     });
   }
 };
