@@ -1,8 +1,9 @@
 {
   "name": "studynook-server",
   "version": "1.0.0",
-  "description": "",
+  "description": "StudyNook backend server",
   "main": "server.js",
+  "type": "module",
   "scripts": {
     "dev": "nodemon server.js",
     "start": "node server.js"
@@ -10,7 +11,6 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "module",
   "dependencies": {
     "better-auth": "^1.6.11",
     "cookie-parser": "^1.4.7",
