@@ -7,9 +7,7 @@ export const auth = betterAuth({
 
   secret: process.env.BETTER_AUTH_SECRET,
 
-  baseURL:
-    process.env.BETTER_AUTH_URL ||
-    "https://studynook-server-beta.vercel.app",
+  baseURL: process.env.BETTER_AUTH_URL,
 
   trustedOrigins: [
     "http://localhost:3000",
@@ -29,6 +27,11 @@ export const auth = betterAuth({
   },
 
   advanced: {
+    useSecureCookies: true,
+    crossSubDomainCookies: {
+      enabled: true,
+    },
+
     defaultCookieAttributes: {
       sameSite: "none",
       secure: true,
