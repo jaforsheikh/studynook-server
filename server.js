@@ -4,7 +4,7 @@ import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
 import { toNodeHandler } from "better-auth/node";
 
-import client from "./services/mongodb.js";
+import client, { db } from "./services/mongodb.js";
 import { auth } from "./auth.js";
 
 import roomRoutes from "./routes/roomRoutes.js";
@@ -36,27 +36,18 @@ app.use(
   })
 );
 
-/*
-Better Auth route must be before express.json()
-*/
 app.use("/api/auth", toNodeHandler(auth));
 
 app.use(express.json());
 app.use(cookieParser());
 
-const database = client.db("studynookDB");
+export const roomsCollection = db.collection("rooms");
+export const bookingsCollection = db.collection("bookings");
 
-export const roomsCollection = database.collection("rooms");
-export const bookingsCollection = database.collection("bookings");
-
-/*
-DATABASE CONNECTION
-*/
 async function connectDB() {
   try {
     await client.connect();
     await client.db("admin").command({ ping: 1 });
-
     console.log("MongoDB Connected Successfully");
   } catch (error) {
     console.log("MongoDB Connection Error:", error);
@@ -65,9 +56,6 @@ async function connectDB() {
 
 connectDB();
 
-/*
-ROUTES
-*/
 app.use("/api/rooms", roomRoutes);
 app.use("/api/bookings", bookingRoutes);
 app.use("/api/dashboard", dashboardRoutes);
@@ -76,9 +64,6 @@ app.get("/", (req, res) => {
   res.send("StudyNook Server Running");
 });
 
-/*
-SERVER
-*/
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
 });

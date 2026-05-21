@@ -5,10 +5,8 @@ dotenv.config();
 
 const uri = process.env.MONGODB_URI;
 
-console.log("Mongo URI exists:", Boolean(uri));
-
 if (!uri) {
-  throw new Error("MONGODB_URI is missing. Check .env file location.");
+  throw new Error("MONGODB_URI is missing.");
 }
 
 const client = new MongoClient(uri, {
@@ -18,5 +16,7 @@ const client = new MongoClient(uri, {
     deprecationErrors: true,
   },
 });
+
+export const db = client.db("studynookDB");
 
 export default client;
