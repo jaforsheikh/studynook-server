@@ -1,5 +1,8 @@
 import { ObjectId } from "mongodb";
-import { bookingsCollection, roomsCollection } from "../server.js";
+import { db } from "../services/mongodb.js";
+
+const bookingsCollection = db.collection("bookings");
+const roomsCollection = db.collection("rooms");
 
 /*
 CREATE BOOKING WITH CONFLICT DETECTION
@@ -61,7 +64,12 @@ export const createBooking = async (req, res) => {
 
     const bookingData = {
       roomId: String(room._id),
-      roomName: bookingBody.roomName || bookingBody.roomTitle || room.name || room.title,
+      roomName:
+        bookingBody.roomName ||
+        bookingBody.roomTitle ||
+        room.name ||
+        room.title ||
+        "Study Room",
       roomImage: bookingBody.roomImage || room.image || "",
       location: bookingBody.location || room.location || "",
       bookingDate,
@@ -85,7 +93,10 @@ export const createBooking = async (req, res) => {
       success: true,
       message: "Booking created successfully",
       bookingId: result.insertedId,
-      booking: bookingData,
+      booking: {
+        _id: result.insertedId,
+        ...bookingData,
+      },
     });
   } catch (error) {
     console.log("Create booking error:", error);
@@ -127,6 +138,7 @@ export const getMyBookings = async (req, res) => {
     res.status(500).send({
       success: false,
       message: "Failed to fetch bookings",
+      error: error.message,
     });
   }
 };
@@ -239,6 +251,7 @@ export const checkAvailability = async (req, res) => {
     res.status(500).send({
       success: false,
       message: "Failed to check availability",
+      error: error.message,
     });
   }
 };
