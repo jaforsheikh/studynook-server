@@ -1,6 +1,7 @@
 import { ObjectId } from "mongodb";
-import { roomsCollection } from "../server.js";
+import { db } from "../services/mongodb.js";
 
+const roomsCollection = db.collection("rooms");
 /*
 GET ALL ROOMS WITH SEARCH/FILTER
 */
