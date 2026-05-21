@@ -13,6 +13,14 @@ export const auth = betterAuth({
     "https://studynook-eight.vercel.app",
   ],
 
+  advanced: {
+    defaultCookieAttributes: {
+      sameSite: "none",
+      secure: true,
+      httpOnly: true,
+    },
+  },
+
   emailAndPassword: {
     enabled: true,
   },
