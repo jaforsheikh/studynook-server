@@ -1,133 +1,36 @@
 import express from "express";
-import { ObjectId } from "mongodb";
-import { bookingsCollection, roomsCollection } from "../server.js";
+
+import {
+  createBooking,
+  getMyBookings,
+  cancelBooking,
+  checkAvailability,
+} from "../controllers/bookingController.js";
 
 const router = express.Router();
 
 /*
-CREATE BOOKING + CONFLICT CHECK
+CREATE BOOKING
+POST /api/bookings
 */
-router.post("/", async (req, res) => {
-  try {
-    const {
-      roomId,
-      roomName,
-      bookingDate,
-      slots,
-      totalPrice,
-      userEmail,
-      userName,
-    } = req.body;
-
-    if (!roomId || !bookingDate || !slots?.length || !userEmail) {
-      return res.status(400).send({
-        success: false,
-        message: "Missing required booking data",
-      });
-    }
-
-    const conflict = await bookingsCollection.findOne({
-      roomId,
-      bookingDate,
-      status: "confirmed",
-      slots: { $in: slots },
-    });
-
-    if (conflict) {
-      return res.status(409).send({
-        success: false,
-        message: "This room already has a booking for selected slot.",
-      });
-    }
-
-    const booking = {
-      roomId,
-      roomName,
-      bookingDate,
-      slots,
-      totalPrice,
-      userEmail,
-      userName,
-      status: "confirmed",
-      createdAt: new Date(),
-    };
-
-    const result = await bookingsCollection.insertOne(booking);
-
-    if (ObjectId.isValid(roomId)) {
-      await roomsCollection.updateOne(
-        { _id: new ObjectId(roomId) },
-        { $inc: { bookingCount: 1 } }
-      );
-    }
-
-    res.status(201).send({
-      success: true,
-      message: "Booking confirmed successfully",
-      insertedId: result.insertedId,
-    });
-  } catch (error) {
-    console.log(error);
-
-    res.status(500).send({
-      success: false,
-      message: "Booking failed",
-    });
-  }
-});
+router.post("/", createBooking);
 
 /*
-GET MY BOOKINGS
+GET MY BOOKINGS BY EMAIL
+GET /api/bookings/my-bookings/:email
 */
-router.get("/my-bookings/:email", async (req, res) => {
-  try {
-    const email = req.params.email;
-
-    const bookings = await bookingsCollection
-      .find({ userEmail: email })
-      .sort({ createdAt: -1 })
-      .toArray();
-
-    res.send({
-      success: true,
-      bookings,
-    });
-  } catch (error) {
-    res.status(500).send({
-      success: false,
-      message: "Failed to fetch bookings",
-    });
-  }
-});
+router.get("/my-bookings/:email", getMyBookings);
 
 /*
 CANCEL BOOKING
+PATCH /api/bookings/:id/cancel
 */
-router.patch("/:id/cancel", async (req, res) => {
-  try {
-    const id = req.params.id;
+router.patch("/:id/cancel", cancelBooking);
 
-    const result = await bookingsCollection.updateOne(
-      { _id: new ObjectId(id) },
-      {
-        $set: {
-          status: "cancelled",
-          cancelledAt: new Date(),
-        },
-      }
-    );
-
-    res.send({
-      success: true,
-      message: "Booking cancelled successfully",
-      result,
-    });
-  } catch (error) {
-    res.status(500).send({
-      success: false,
-      message: "Failed to cancel booking",
-    });
-  }
-});
+/*
+CHECK AVAILABILITY
+POST /api/bookings/check-availability
+*/
+router.post("/check-availability", checkAvailability);
 
 export default router;

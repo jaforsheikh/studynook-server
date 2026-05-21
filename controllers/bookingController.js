@@ -6,28 +6,37 @@ CREATE BOOKING WITH CONFLICT DETECTION
 */
 export const createBooking = async (req, res) => {
   try {
-    const {
-      roomId,
-      roomTitle,
-      roomImage,
-      location,
-      date,
-      startTime,
-      endTime,
-      selectedSlots,
-      totalPrice,
-    } = req.body;
+    const bookingBody = req.body;
 
-    if (!roomId || !date || !selectedSlots || selectedSlots.length === 0) {
+    const roomId = bookingBody.roomId;
+    const bookingDate = bookingBody.bookingDate || bookingBody.date;
+    const slots = bookingBody.slots || bookingBody.selectedSlots || [];
+    const userEmail = bookingBody.userEmail;
+    const userName = bookingBody.userName || "";
+
+    if (!roomId || !bookingDate || !Array.isArray(slots) || slots.length === 0) {
       return res.status(400).send({
         success: false,
         message: "Room, date, and time slots are required",
       });
     }
 
-    const room = await roomsCollection.findOne({
-      _id: new ObjectId(roomId),
-    });
+    if (!userEmail) {
+      return res.status(400).send({
+        success: false,
+        message: "User email is required",
+      });
+    }
+
+    let roomQuery;
+
+    if (ObjectId.isValid(roomId)) {
+      roomQuery = { _id: new ObjectId(roomId) };
+    } else {
+      roomQuery = { slug: roomId };
+    }
+
+    const room = await roomsCollection.findOne(roomQuery);
 
     if (!room) {
       return res.status(404).send({
@@ -37,10 +46,10 @@ export const createBooking = async (req, res) => {
     }
 
     const conflict = await bookingsCollection.findOne({
-      roomId,
-      date,
+      roomId: String(room._id),
+      bookingDate,
       status: { $ne: "cancelled" },
-      selectedSlots: { $in: selectedSlots },
+      slots: { $in: slots },
     });
 
     if (conflict) {
@@ -51,25 +60,24 @@ export const createBooking = async (req, res) => {
     }
 
     const bookingData = {
-      roomId,
-      roomTitle: roomTitle || room.title || room.name,
-      roomImage: roomImage || room.image,
-      location: location || room.location,
-      date,
-      startTime,
-      endTime,
-      selectedSlots,
-      totalPrice,
+      roomId: String(room._id),
+      roomName: bookingBody.roomName || bookingBody.roomTitle || room.name || room.title,
+      roomImage: bookingBody.roomImage || room.image || "",
+      location: bookingBody.location || room.location || "",
+      bookingDate,
+      slots,
+      totalPrice: Number(bookingBody.totalPrice) || 0,
       status: "confirmed",
-      userEmail: req.user.email,
-      userId: req.user.userId,
+      userEmail,
+      userName,
       createdAt: new Date(),
+      updatedAt: new Date(),
     };
 
     const result = await bookingsCollection.insertOne(bookingData);
 
     await roomsCollection.updateOne(
-      { _id: new ObjectId(roomId) },
+      { _id: room._id },
       { $inc: { bookingCount: 1 } }
     );
 
@@ -77,8 +85,11 @@ export const createBooking = async (req, res) => {
       success: true,
       message: "Booking created successfully",
       bookingId: result.insertedId,
+      booking: bookingData,
     });
   } catch (error) {
+    console.log("Create booking error:", error);
+
     res.status(500).send({
       success: false,
       message: "Failed to create booking",
@@ -88,12 +99,21 @@ export const createBooking = async (req, res) => {
 };
 
 /*
-GET MY BOOKINGS
+GET MY BOOKINGS BY EMAIL
 */
 export const getMyBookings = async (req, res) => {
   try {
+    const email = req.params.email || req.query.email;
+
+    if (!email) {
+      return res.status(400).send({
+        success: false,
+        message: "Email is required",
+      });
+    }
+
     const bookings = await bookingsCollection
-      .find({ userEmail: req.user.email })
+      .find({ userEmail: email })
       .sort({ createdAt: -1 })
       .toArray();
 
@@ -102,6 +122,8 @@ export const getMyBookings = async (req, res) => {
       bookings,
     });
   } catch (error) {
+    console.log("Get my bookings error:", error);
+
     res.status(500).send({
       success: false,
       message: "Failed to fetch bookings",
@@ -116,6 +138,13 @@ export const cancelBooking = async (req, res) => {
   try {
     const id = req.params.id;
 
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).send({
+        success: false,
+        message: "Invalid booking id",
+      });
+    }
+
     const booking = await bookingsCollection.findOne({
       _id: new ObjectId(id),
     });
@@ -124,13 +153,6 @@ export const cancelBooking = async (req, res) => {
       return res.status(404).send({
         success: false,
         message: "Booking not found",
-      });
-    }
-
-    if (booking.userEmail !== req.user.email) {
-      return res.status(403).send({
-        success: false,
-        message: "Forbidden access",
       });
     }
 
@@ -147,14 +169,17 @@ export const cancelBooking = async (req, res) => {
         $set: {
           status: "cancelled",
           cancelledAt: new Date(),
+          updatedAt: new Date(),
         },
       }
     );
 
-    await roomsCollection.updateOne(
-      { _id: new ObjectId(booking.roomId) },
-      { $inc: { bookingCount: -1 } }
-    );
+    if (ObjectId.isValid(booking.roomId)) {
+      await roomsCollection.updateOne(
+        { _id: new ObjectId(booking.roomId) },
+        { $inc: { bookingCount: -1 } }
+      );
+    }
 
     res.send({
       success: true,
@@ -162,6 +187,8 @@ export const cancelBooking = async (req, res) => {
       result,
     });
   } catch (error) {
+    console.log("Cancel booking error:", error);
+
     res.status(500).send({
       success: false,
       message: "Failed to cancel booking",
@@ -175,20 +202,28 @@ CHECK AVAILABILITY
 */
 export const checkAvailability = async (req, res) => {
   try {
-    const { roomId, date, selectedSlots } = req.body;
+    const roomId = req.body.roomId;
+    const bookingDate = req.body.bookingDate || req.body.date;
+    const slots = req.body.slots || req.body.selectedSlots || [];
 
-    if (!roomId || !date || !selectedSlots || selectedSlots.length === 0) {
+    if (!roomId || !bookingDate || !Array.isArray(slots) || slots.length === 0) {
       return res.status(400).send({
         success: false,
         message: "Room, date, and selected slots are required",
       });
     }
 
+    let finalRoomId = roomId;
+
+    if (ObjectId.isValid(roomId)) {
+      finalRoomId = roomId;
+    }
+
     const conflict = await bookingsCollection.findOne({
-      roomId,
-      date,
+      roomId: String(finalRoomId),
+      bookingDate,
       status: { $ne: "cancelled" },
-      selectedSlots: { $in: selectedSlots },
+      slots: { $in: slots },
     });
 
     res.send({
@@ -199,6 +234,8 @@ export const checkAvailability = async (req, res) => {
         : "Selected slots are available",
     });
   } catch (error) {
+    console.log("Check availability error:", error);
+
     res.status(500).send({
       success: false,
       message: "Failed to check availability",
