@@ -138,26 +138,39 @@ export const addRoom = async (req, res) => {
   try {
     const roomData = req.body;
 
-    const slug = roomData.name
-      ?.toLowerCase()
+    const roomName = roomData.name || roomData.title;
+
+    if (!roomName) {
+      return res.status(400).send({
+        success: false,
+        message: "Room name is required",
+      });
+    }
+
+    const slug = roomName
+      .toLowerCase()
       .trim()
       .replace(/[^\w\s-]/g, "")
       .replace(/\s+/g, "-");
 
     const newRoom = {
-      name: roomData.name,
+      name: roomName,
+      title: roomName,
       slug,
-      image: roomData.image,
-      location: roomData.location,
-      floor: roomData.floor,
-      capacity: Number(roomData.capacity),
-      price: Number(roomData.price),
-      description: roomData.description,
-      amenities: roomData.amenities || [],
+      image: roomData.image || roomData.imageUrl || "",
+      location: roomData.location || "",
+      floor: roomData.floor || "",
+      capacity: Number(roomData.capacity) || 1,
+      price: Number(roomData.price) || 0,
+      description: roomData.description || "",
+      amenities: Array.isArray(roomData.amenities) ? roomData.amenities : [],
       availableToday: true,
       rating: Number(roomData.rating) || 4.8,
       bookingCount: 0,
-      owner: roomData.owner,
+      owner: roomData.owner || {
+        name: roomData.ownerName || "",
+        email: roomData.ownerEmail || "",
+      },
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -168,6 +181,7 @@ export const addRoom = async (req, res) => {
       success: true,
       message: "Room added successfully",
       insertedId: result.insertedId,
+      room: newRoom,
     });
   } catch (error) {
     console.log(error);
@@ -178,7 +192,6 @@ export const addRoom = async (req, res) => {
     });
   }
 };
-
 /*
 UPDATE ROOM
 */
