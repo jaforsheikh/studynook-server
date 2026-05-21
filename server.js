@@ -23,18 +23,32 @@ const allowedOrigins = [
   process.env.FRONTEND_URL,
 ].filter(Boolean);
 
+/*
+CORS
+*/
 app.use(
   cors({
     origin(origin, callback) {
       if (!origin || allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
-      return callback(new Error("Not allowed by CORS"));
+
+      return callback(new Error(`Not allowed by CORS: ${origin}`));
     },
     credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Credentials", "true");
+  next();
+});
+
+/*
+Better Auth route must be before express.json()
+*/
 app.use("/api/auth", toNodeHandler(auth));
 
 app.use(express.json());
@@ -50,8 +64,8 @@ async function connectDB() {
 
   await client.connect();
   await client.db("admin").command({ ping: 1 });
-  isConnected = true;
 
+  isConnected = true;
   console.log("MongoDB Connected Successfully");
 }
 
@@ -59,16 +73,25 @@ connectDB().catch((error) => {
   console.log("MongoDB Connection Error:", error);
 });
 
+/*
+Routes
+*/
 app.use("/api/rooms", roomRoutes);
 app.use("/api/bookings", bookingRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 
+/*
+Health Check
+*/
 app.get("/", (req, res) => {
   res.send("StudyNook Server Running");
 });
 
 export default app;
 
+/*
+Local Development Only
+*/
 if (process.env.NODE_ENV !== "production") {
   const port = process.env.PORT || 5000;
 
