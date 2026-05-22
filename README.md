@@ -95,7 +95,7 @@ studynook-server/
 ## 1️⃣ Clone Repository
 
 ```bash
-git clone https://github.com/your-username/studynook-server.git
+git clone https://github.com/jaforsheikh/studynook-server.git
 ```
 
 ---
@@ -126,9 +126,6 @@ PORT=5000
 MONGODB_URI=your_mongodb_uri
 
 JWT_SECRET=your_jwt_secret
-
-CLIENT_URL=http://localhost:3000
-```
 
 ---
 
@@ -210,41 +207,6 @@ npm test
 
 Full Stack Web Developer
 
----
-
-# 📄 License
-
-This project is licensed under the MIT License.
-
----
-
-# ⭐ Support
-
-If you like this project:
-
-- Give this repository a ⭐
-- Fork the repository
-- Contribute to improve the backend
-
----
-
-# 🙌 Acknowledgements
-
-Special thanks to:
-- Node.js
-- Express.js
-- MongoDB
-- Vercel
-
----
-
-# 📬 Contact
-
-For any queries or collaboration:
-
-📧 Email: your-email@example.com
-
----
 
 # 🚀 Thank You
 
