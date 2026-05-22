@@ -12,7 +12,8 @@ export const auth = betterAuth({
   trustedOrigins: [
     "http://localhost:3000",
     "https://studynook-eight.vercel.app",
-  ],
+    process.env.FRONTEND_URL,
+  ].filter(Boolean),
 
   emailAndPassword: {
     enabled: true,
@@ -23,14 +24,12 @@ export const auth = betterAuth({
     google: {
       clientId: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      allowDangerousEmailAccountLinking: true,
     },
   },
 
   advanced: {
     useSecureCookies: true,
-    crossSubDomainCookies: {
-      enabled: true,
-    },
 
     defaultCookieAttributes: {
       sameSite: "none",
